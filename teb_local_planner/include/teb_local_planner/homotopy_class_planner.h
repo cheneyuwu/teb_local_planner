@@ -105,7 +105,8 @@ inline std::complex<long double> getCplxFromMsgPoseStamped(const geometry_msgs::
  * All steps are repeated in the subsequent sampling interval with the exception, that already planned (optimized) trajectories
  * are preferred against new path initilizations in order to improve the hot-starting capability.
  */
-class HomotopyClassPlanner : public PlannerInterface
+template <class NodeT>
+class HomotopyClassPlanner : public PlannerInterface<NodeT>
 {
 public:
 
@@ -125,8 +126,8 @@ public:
    * @param visualization Shared pointer to the TebVisualization class (optional)
    * @param via_points Container storing via-points (optional)
    */
-  HomotopyClassPlanner(nav2_util::LifecycleNode::SharedPtr node, const TebConfig& cfg, ObstContainer* obstacles = NULL, RobotFootprintModelPtr robot_model = std::make_shared<PointRobotFootprint>(),
-                       TebVisualizationPtr visualization = TebVisualizationPtr(), const ViaPointContainer* via_points = NULL);
+  HomotopyClassPlanner(NodeT node, const TebConfig& cfg, ObstContainer* obstacles = NULL, RobotFootprintModelPtr robot_model = std::make_shared<PointRobotFootprint>(),
+                       TebVisualizationPtr<NodeT> visualization = TebVisualizationPtr<NodeT>(), const ViaPointContainer* via_points = NULL);
 
   /**
    * @brief Destruct the HomotopyClassPlanner.
@@ -142,8 +143,8 @@ public:
    * @param visualization Shared pointer to the TebVisualization class (optional)
    * @param via_points Container storing via-points (optional)
    */
-  void initialize(nav2_util::LifecycleNode::SharedPtr node, const TebConfig& cfg, ObstContainer* obstacles = NULL, RobotFootprintModelPtr robot_model = std::make_shared<PointRobotFootprint>(),
-                  TebVisualizationPtr visualization = TebVisualizationPtr(), const ViaPointContainer* via_points = NULL);
+  void initialize(NodeT node, const TebConfig& cfg, ObstContainer* obstacles = NULL, RobotFootprintModelPtr robot_model = std::make_shared<PointRobotFootprint>(),
+                  TebVisualizationPtr<NodeT> visualization = TebVisualizationPtr<NodeT>(), const ViaPointContainer* via_points = NULL);
 
 
   void updateRobotModel(RobotFootprintModelPtr robot_model );
@@ -211,7 +212,7 @@ public:
    * Otherwise return the best one, but call selectBestTeb() before to perform the actual selection (part of the plan() methods).
    * @return Shared pointer to the best TebOptimalPlanner that contains the selected trajectory (TimedElasticBand).
    */
-  TebOptimalPlannerPtr bestTeb() const {return tebs_.empty() ? TebOptimalPlannerPtr() : tebs_.size()==1 ? tebs_.front() : best_teb_;}
+  TebOptimalPlannerPtr<NodeT> bestTeb() const {return tebs_.empty() ? TebOptimalPlannerPtr<NodeT>() : tebs_.size()==1 ? tebs_.front() : best_teb_;}
 
   /**
    * @brief Check whether the planned trajectory is feasible or not.
@@ -235,14 +236,14 @@ public:
    * @return Shared pointer to the best TebOptimalPlanner that contains the selected trajectory (TimedElasticBand).
    *         An empty pointer is returned if no plan is available.
    */
-  TebOptimalPlannerPtr findBestTeb();
+  TebOptimalPlannerPtr<NodeT> findBestTeb();
 
   /**
    * @brief Removes the specified teb and the corresponding homotopy class from the list of available ones.
    * @param pointer to the teb Band to be removed
    * @return Iterator to the next valid teb if available, else to the end of the tebs container.
    */
-  TebOptPlannerContainer::iterator removeTeb(TebOptimalPlannerPtr& teb);
+  typename TebOptPlannerContainer<NodeT>::iterator removeTeb(TebOptimalPlannerPtr<NodeT>& teb);
 
   //@}
 
@@ -304,7 +305,7 @@ public:
    * @return Shared pointer to the newly created teb optimal planner
    */
   template<typename BidirIter, typename Fun>
-  TebOptimalPlannerPtr addAndInitNewTeb(BidirIter path_start, BidirIter path_end, Fun fun_position, double start_orientation, double goal_orientation, const geometry_msgs::msg::Twist* start_velocity, bool free_goal_vel = false);
+  TebOptimalPlannerPtr<NodeT> addAndInitNewTeb(BidirIter path_start, BidirIter path_end, Fun fun_position, double start_orientation, double goal_orientation, const geometry_msgs::msg::Twist* start_velocity, bool free_goal_vel = false);
 
   /**
    * @brief Add a new Teb to the internal trajectory container, if this teb constitutes a new equivalence class. Initialize it with a simple straight line between a given start and goal
@@ -314,7 +315,7 @@ public:
    * @param free_goal_vel if \c true, a nonzero final velocity at the goal pose is allowed, otherwise the final velocity will be zero (default: false)
    * @return Shared pointer to the newly created teb optimal planner
    */
-  TebOptimalPlannerPtr addAndInitNewTeb(const PoseSE2& start, const PoseSE2& goal, const geometry_msgs::msg::Twist* start_velocity, bool free_goal_vel = false);
+  TebOptimalPlannerPtr<NodeT> addAndInitNewTeb(const PoseSE2& start, const PoseSE2& goal, const geometry_msgs::msg::Twist* start_velocity, bool free_goal_vel = false);
 
   /**
    * @brief Add a new Teb to the internal trajectory container , if this teb constitutes a new equivalence class. Initialize it using a PoseStamped container
@@ -323,7 +324,7 @@ public:
    * @param free_goal_vel if \c true, a nonzero final velocity at the goal pose is allowed, otherwise the final velocity will be zero (default: false)
    * @return Shared pointer to the newly created teb optimal planner
    */
-  TebOptimalPlannerPtr addAndInitNewTeb(const std::vector<geometry_msgs::msg::PoseStamped>& initial_plan, const geometry_msgs::msg::Twist* start_velocity, bool free_goal_vel = false);
+  TebOptimalPlannerPtr<NodeT> addAndInitNewTeb(const std::vector<geometry_msgs::msg::PoseStamped>& initial_plan, const geometry_msgs::msg::Twist* start_velocity, bool free_goal_vel = false);
 
   /**
    * @brief Update TEBs with new pose, goal and current velocity.
@@ -347,7 +348,7 @@ public:
    * @brief Returns a shared pointer to the TEB related to the initial plan
    * @return A non-empty shared ptr is returned if a match was found; Otherwise the shared ptr is empty.
    */
-  TebOptimalPlannerPtr getInitialPlanTEB();
+  TebOptimalPlannerPtr<NodeT> getInitialPlanTEB();
 
   /**
    * @brief In case of multiple, internally stored, alternative trajectories, select the best one according to their cost values.
@@ -356,7 +357,7 @@ public:
    * The best trajectory can be accessed later by bestTeb() within the current sampling interval in order to avoid unessary recalculations.
    * @return Shared pointer to the best TebOptimalPlanner that contains the selected trajectory (TimedElasticBand).
    */
-  TebOptimalPlannerPtr selectBestTeb();
+  TebOptimalPlannerPtr<NodeT> selectBestTeb();
 
   //@}
 
@@ -444,7 +445,7 @@ public:
    * @return: Could the vector for the orientation check be computed? (False if the plan has no pose with a distance
    *          > len_orientation_vector from the start poseq)
    */
-  bool computeStartOrientation(const TebOptimalPlannerPtr plan, const double len_orientation_vector, double& orientation);
+  bool computeStartOrientation(const TebOptimalPlannerPtr<NodeT> plan, const double len_orientation_vector, double& orientation);
 
 
   /**
@@ -552,18 +553,18 @@ protected:
   const ViaPointContainer* via_points_; //!< Store the current list of via-points
 
   // internal objects (memory management owned)
-  TebVisualizationPtr visualization_; //!< Instance of the visualization class (local/global plan, obstacles, ...)
-  TebOptimalPlannerPtr best_teb_; //!< Store the current best teb.
+  TebVisualizationPtr<NodeT> visualization_; //!< Instance of the visualization class (local/global plan, obstacles, ...)
+  TebOptimalPlannerPtr<NodeT> best_teb_; //!< Store the current best teb.
   EquivalenceClassPtr best_teb_eq_class_; //!< Store the equivalence class of the current best teb
   RobotFootprintModelPtr robot_model_; //!< Robot model shared instance
 
   const std::vector<geometry_msgs::msg::PoseStamped>* initial_plan_; //!< Store the initial plan if available for a better trajectory initialization
   EquivalenceClassPtr initial_plan_eq_class_; //!< Store the equivalence class of the initial plan
-  TebOptimalPlannerPtr initial_plan_teb_; //!< Store pointer to the TEB related to the initial plan (use method getInitialPlanTEB() since it checks if initial_plan_teb_ is still included in tebs_.)
+  TebOptimalPlannerPtr<NodeT> initial_plan_teb_; //!< Store pointer to the TEB related to the initial plan (use method getInitialPlanTEB() since it checks if initial_plan_teb_ is still included in tebs_.)
 
   TebOptPlannerContainer tebs_; //!< Container that stores multiple local teb planners (for alternative equivalence classes) and their corresponding costs
 
-  EquivalenceClassContainer equivalence_classes_; //!< Store all known quivalence classes (e.g. h-signatures) to allow checking for duplicates after finding and adding new ones.
+  EquivalenceClassContainer<NodeT> equivalence_classes_; //!< Store all known quivalence classes (e.g. h-signatures) to allow checking for duplicates after finding and adding new ones.
                                                                             //   The second parameter denotes whether to exclude the class from detour deletion or not (true: force keeping).
 
   std::shared_ptr<GraphSearchInterface> graph_search_;
@@ -573,7 +574,7 @@ protected:
   std::default_random_engine random_;
   bool initialized_; //!< Keeps track about the correct initialization of this class
 
-  TebOptimalPlannerPtr last_best_teb_;  //!< Points to the plan used in the previous control cycle
+  TebOptimalPlannerPtr<NodeT> last_best_teb_;  //!< Points to the plan used in the previous control cycle
 
 
 
@@ -584,7 +585,8 @@ public:
 };
 
 //! Abbrev. for a shared pointer of a HomotopyClassPlanner instance.
-typedef std::shared_ptr<HomotopyClassPlanner> HomotopyClassPlannerPtr;
+template <class NodeT>
+using HomotopyClassPlannerPtr = std::shared_ptr<HomotopyClassPlanner>;
 
 
 } // namespace teb_local_planner

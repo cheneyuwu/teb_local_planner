@@ -66,6 +66,7 @@
 namespace teb_local_planner
 {
 
+template <class NodeT>
 class HomotopyClassPlanner; // Forward declaration
 
 //! Vertex in the graph that is used to find homotopy classes (only stores 2D positions)

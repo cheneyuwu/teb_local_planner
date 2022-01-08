@@ -61,39 +61,43 @@ void publishPlan(const std::vector<geometry_msgs::msg::PoseStamped>& path,
     pub->publish(gui_path);
 }
 
-TebVisualization::TebVisualization(const rclcpp_lifecycle::LifecycleNode::SharedPtr & nh, const TebConfig& cfg) : nh_(nh), cfg_(&cfg), initialized_(false)
+template<class NodeT>
+TebVisualization<NodeT>::TebVisualization(const NodeT & nh, const TebConfig& cfg) : nh_(nh), cfg_(&cfg), initialized_(false)
 {
 }
 
-void TebVisualization::publishGlobalPlan(const std::vector<geometry_msgs::msg::PoseStamped>& global_plan) const
+template<class NodeT>
+void TebVisualization<NodeT>::publishGlobalPlan(const std::vector<geometry_msgs::msg::PoseStamped>& global_plan) const
 {
   if ( printErrorWhenNotInitialized() )
     return;
   publishPlan(global_plan, global_plan_pub_.get());
 }
 
-void TebVisualization::publishLocalPlan(const std::vector<geometry_msgs::msg::PoseStamped>& local_plan) const
+template<class NodeT>
+void TebVisualization<NodeT>::publishLocalPlan(const std::vector<geometry_msgs::msg::PoseStamped>& local_plan) const
 {
   if ( printErrorWhenNotInitialized() )
     return;
   publishPlan(local_plan, local_plan_pub_.get());
 }
 
-void TebVisualization::publishLocalPlanAndPoses(const TimedElasticBand& teb) const
+template<class NodeT>
+void TebVisualization<NodeT>::publishLocalPlanAndPoses(const TimedElasticBand& teb) const
 {
   if ( printErrorWhenNotInitialized() )
     return;
-  
+
     // create path msg
     nav_msgs::msg::Path teb_path;
     teb_path.header.frame_id = cfg_->map_frame;
     teb_path.header.stamp = nh_->now();
-    
+
     // create pose_array (along trajectory)
     geometry_msgs::msg::PoseArray teb_poses;
     teb_poses.header.frame_id = teb_path.header.frame_id;
     teb_poses.header.stamp = teb_path.header.stamp;
-    
+
     // fill path msgs with teb configurations
     for (int i=0; i < teb.sizePoses(); i++)
     {
@@ -111,18 +115,18 @@ void TebVisualization::publishLocalPlanAndPoses(const TimedElasticBand& teb) con
 }
 
 
-
-void TebVisualization::publishRobotFootprintModel(const PoseSE2& current_pose, const BaseRobotFootprintModel& robot_model, const std::string& ns,
+template<class NodeT>
+void TebVisualization<NodeT>::publishRobotFootprintModel(const PoseSE2& current_pose, const BaseRobotFootprintModel& robot_model, const std::string& ns,
                                                   const std_msgs::msg::ColorRGBA &color)
 {
   if ( printErrorWhenNotInitialized() )
     return;
-  
+
   std::vector<visualization_msgs::msg::Marker> markers;
   robot_model.visualizeRobot(current_pose, markers, color);
   if (markers.empty())
     return;
-  
+
   int idx = 1000000;  // avoid overshadowing by obstacles
   for (std::vector<visualization_msgs::msg::Marker>::iterator marker_it = markers.begin(); marker_it != markers.end(); ++marker_it, ++idx)
   {
@@ -134,20 +138,21 @@ void TebVisualization::publishRobotFootprintModel(const PoseSE2& current_pose, c
     marker_it->lifetime = rclcpp::Duration(2, 0);
     teb_marker_pub_->publish(*marker_it);
   }
-  
+
 }
 
-void TebVisualization::publishInfeasibleRobotPose(const PoseSE2& current_pose, const BaseRobotFootprintModel& robot_model)
+template<class NodeT>
+void TebVisualization<NodeT>::publishInfeasibleRobotPose(const PoseSE2& current_pose, const BaseRobotFootprintModel& robot_model)
 {
   publishRobotFootprintModel(current_pose, robot_model, "InfeasibleRobotPoses", toColorMsg(0.5, 0.8, 0.0, 0.0));
 }
 
-
-void TebVisualization::publishObstacles(const ObstContainer& obstacles) const
+template<class NodeT>
+void TebVisualization<NodeT>::publishObstacles(const ObstContainer& obstacles) const
 {
   if ( obstacles.empty() || printErrorWhenNotInitialized() )
     return;
-  
+
   // Visualize point obstacles
   {
     visualization_msgs::msg::Marker marker;
@@ -159,7 +164,7 @@ void TebVisualization::publishObstacles(const ObstContainer& obstacles) const
     marker.action = visualization_msgs::msg::Marker::ADD;
     marker.lifetime = rclcpp::Duration(2, 0);
     marker.pose.orientation.w = 1.0;
-    
+
     for (ObstContainer::const_iterator obst = obstacles.begin(); obst != obstacles.end(); ++obst)
     {
       std::shared_ptr<PointObstacle> pobst = std::dynamic_pointer_cast<PointObstacle>(*obst);
@@ -193,7 +198,7 @@ void TebVisualization::publishObstacles(const ObstContainer& obstacles) const
         marker.points.push_back(end);
       }
     }
-    
+
     marker.scale.x = 0.1;
     marker.scale.y = 0.1;
     marker.color.a = 1.0;
@@ -203,7 +208,7 @@ void TebVisualization::publishObstacles(const ObstContainer& obstacles) const
 
     teb_marker_pub_->publish( marker );
   }
-  
+
   // Visualize circular obstacles
   {
     std::size_t idx = 0;
@@ -242,11 +247,11 @@ void TebVisualization::publishObstacles(const ObstContainer& obstacles) const
   {
     std::size_t idx = 0;
     for (ObstContainer::const_iterator obst = obstacles.begin(); obst != obstacles.end(); ++obst)
-    {	
+    {
       std::shared_ptr<LineObstacle> pobst = std::dynamic_pointer_cast<LineObstacle>(*obst);
       if (!pobst)
         continue;
-      
+
       visualization_msgs::msg::Marker marker;
       marker.header.frame_id = cfg_->map_frame;
       marker.header.stamp = nh_->now();
@@ -267,28 +272,28 @@ void TebVisualization::publishObstacles(const ObstContainer& obstacles) const
       end.y = pobst->end().y();
       end.z = 0;
       marker.points.push_back(end);
-  
+
       marker.scale.x = 0.1;
       marker.scale.y = 0.1;
       marker.color.a = 1.0;
       marker.color.r = 0.0;
       marker.color.g = 1.0;
       marker.color.b = 0.0;
-      
+
       teb_marker_pub_->publish( marker );
     }
   }
-  
+
 
   // Visualize polygon obstacles
   {
     std::size_t idx = 0;
     for (ObstContainer::const_iterator obst = obstacles.begin(); obst != obstacles.end(); ++obst)
-    {	
+    {
       std::shared_ptr<PolygonObstacle> pobst = std::dynamic_pointer_cast<PolygonObstacle>(*obst);
       if (!pobst)
         continue;
-      
+
       visualization_msgs::msg::Marker marker;
       marker.header.frame_id = cfg_->map_frame;
       marker.header.stamp = nh_->now();
@@ -298,7 +303,7 @@ void TebVisualization::publishObstacles(const ObstContainer& obstacles) const
       marker.action = visualization_msgs::msg::Marker::ADD;
       marker.lifetime = rclcpp::Duration(2, 0);
       marker.pose.orientation.w = 1.0;
-      
+
       for (Point2dContainer::const_iterator vertex = pobst->vertices().begin(); vertex != pobst->vertices().end(); ++vertex)
       {
         geometry_msgs::msg::Point point;
@@ -307,7 +312,7 @@ void TebVisualization::publishObstacles(const ObstContainer& obstacles) const
         point.z = 0;
         marker.points.push_back(point);
       }
-      
+
       // Also add last point to close the polygon
       // but only if polygon has more than 2 points (it is not a line)
       if (pobst->vertices().size() > 2)
@@ -324,18 +329,18 @@ void TebVisualization::publishObstacles(const ObstContainer& obstacles) const
       marker.color.r = 1.0;
       marker.color.g = 0.0;
       marker.color.b = 0.0;
-      
+
       teb_marker_pub_->publish( marker );
     }
   }
 }
 
-
-void TebVisualization::publishViaPoints(const std::vector< Eigen::Vector2d, Eigen::aligned_allocator<Eigen::Vector2d> >& via_points, const std::string& ns) const
+template<class NodeT>
+void TebVisualization<NodeT>::publishViaPoints(const std::vector< Eigen::Vector2d, Eigen::aligned_allocator<Eigen::Vector2d> >& via_points, const std::string& ns) const
 {
   if ( via_points.empty() || printErrorWhenNotInitialized() )
     return;
-  
+
   visualization_msgs::msg::Marker marker;
   marker.header.frame_id = cfg_->map_frame;
   marker.header.stamp = nh_->now();
@@ -345,7 +350,7 @@ void TebVisualization::publishViaPoints(const std::vector< Eigen::Vector2d, Eige
   marker.action = visualization_msgs::msg::Marker::ADD;
   marker.lifetime = rclcpp::Duration(2, 0);
   marker.pose.orientation.w = 1.0;
-  
+
   for (std::size_t i=0; i < via_points.size(); ++i)
   {
     geometry_msgs::msg::Point point;
@@ -354,7 +359,7 @@ void TebVisualization::publishViaPoints(const std::vector< Eigen::Vector2d, Eige
     point.z = 0;
     marker.points.push_back(point);
   }
-  
+
   marker.scale.x = 0.1;
   marker.scale.y = 0.1;
   marker.color.a = 1.0;
@@ -365,11 +370,12 @@ void TebVisualization::publishViaPoints(const std::vector< Eigen::Vector2d, Eige
   teb_marker_pub_->publish( marker );
 }
 
-void TebVisualization::publishTebContainer(const TebOptPlannerContainer& teb_planner, const std::string& ns)
+template<class NodeT>
+void TebVisualization<NodeT>::publishTebContainer(const TebOptPlannerContainer<NodeT>& teb_planner, const std::string& ns)
 {
 if ( printErrorWhenNotInitialized() )
     return;
-  
+
   visualization_msgs::msg::Marker marker;
   marker.header.frame_id = cfg_->map_frame;
   marker.header.stamp = nh_->now();
@@ -378,10 +384,10 @@ if ( printErrorWhenNotInitialized() )
   marker.type = visualization_msgs::msg::Marker::LINE_LIST;
   marker.action = visualization_msgs::msg::Marker::ADD;
   marker.pose.orientation.w = 1.0;
-  
+
   // Iterate through teb pose sequence
-  for( TebOptPlannerContainer::const_iterator it_teb = teb_planner.begin(); it_teb != teb_planner.end(); ++it_teb )
-  {	  
+  for( typename TebOptPlannerContainer<NodeT>::const_iterator it_teb = teb_planner.begin(); it_teb != teb_planner.end(); ++it_teb )
+  {
     // iterate single poses
     PoseSequence::const_iterator it_pose = it_teb->get()->teb().poses().begin();
     TimeDiffSequence::const_iterator it_timediff = it_teb->get()->teb().timediffs().begin();
@@ -417,25 +423,26 @@ if ( printErrorWhenNotInitialized() )
   teb_marker_pub_->publish( marker );
 }
 
-void TebVisualization::publishFeedbackMessage(const std::vector< std::shared_ptr<TebOptimalPlanner> >& teb_planners,
+template<class NodeT>
+void TebVisualization<NodeT>::publishFeedbackMessage(const std::vector< std::shared_ptr<TebOptimalPlanner<NodeT>> >& teb_planners,
                                               unsigned int selected_trajectory_idx, const ObstContainer& obstacles)
 {
   teb_msgs::msg::FeedbackMsg msg;
   msg.header.stamp = nh_->now();
   msg.header.frame_id = cfg_->map_frame;
   msg.selected_trajectory_idx = selected_trajectory_idx;
-  
-  
+
+
   msg.trajectories.resize(teb_planners.size());
-  
+
   // Iterate through teb pose sequence
   std::size_t idx_traj = 0;
-  for( TebOptPlannerContainer::const_iterator it_teb = teb_planners.begin(); it_teb != teb_planners.end(); ++it_teb, ++idx_traj )
-  {   
+  for( typename TebOptPlannerContainer<NodeT>::const_iterator it_teb = teb_planners.begin(); it_teb != teb_planners.end(); ++it_teb, ++idx_traj )
+  {
     msg.trajectories[idx_traj].header = msg.header;
     it_teb->get()->getFullTrajectory(msg.trajectories[idx_traj].trajectory);
   }
-  
+
   // add obstacles
   msg.obstacles_msg.obstacles.resize(obstacles.size());
   for (std::size_t i=0; i<obstacles.size(); ++i)
@@ -455,21 +462,22 @@ void TebVisualization::publishFeedbackMessage(const std::vector< std::shared_ptr
     // copy velocities
     obstacles[i]->toTwistWithCovarianceMsg(msg.obstacles_msg.obstacles[i].velocities);
   }
-  
+
   feedback_pub_->publish(msg);
 }
 
-void TebVisualization::publishFeedbackMessage(const TebOptimalPlanner& teb_planner, const ObstContainer& obstacles)
+template<class NodeT>
+void TebVisualization<NodeT>::publishFeedbackMessage(const TebOptimalPlanner<NodeT>& teb_planner, const ObstContainer& obstacles)
 {
   teb_msgs::msg::FeedbackMsg msg;
   msg.header.stamp = nh_->now();
   msg.header.frame_id = cfg_->map_frame;
   msg.selected_trajectory_idx = 0;
-  
+
   msg.trajectories.resize(1);
   msg.trajectories.front().header = msg.header;
   teb_planner.getFullTrajectory(msg.trajectories.front().trajectory);
- 
+
   // add obstacles
   msg.obstacles_msg.obstacles.resize(obstacles.size());
   for (std::size_t i=0; i<obstacles.size(); ++i)
@@ -489,11 +497,12 @@ void TebVisualization::publishFeedbackMessage(const TebOptimalPlanner& teb_plann
     // copy velocities
     obstacles[i]->toTwistWithCovarianceMsg(msg.obstacles_msg.obstacles[i].velocities);
   }
-  
+
   feedback_pub_->publish(msg);
 }
 
-std_msgs::msg::ColorRGBA TebVisualization::toColorMsg(double a, double r, double g, double b)
+template<class NodeT>
+std_msgs::msg::ColorRGBA TebVisualization<NodeT>::toColorMsg(double a, double r, double g, double b)
 {
   std_msgs::msg::ColorRGBA color;
   color.a = a;
@@ -503,7 +512,8 @@ std_msgs::msg::ColorRGBA TebVisualization::toColorMsg(double a, double r, double
   return color;
 }
 
-bool TebVisualization::printErrorWhenNotInitialized() const
+template<class NodeT>
+bool TebVisualization<NodeT>::printErrorWhenNotInitialized() const
 {
   if (!initialized_)
   {
@@ -513,43 +523,47 @@ bool TebVisualization::printErrorWhenNotInitialized() const
   return false;
 }
 
-nav2_util::CallbackReturn TebVisualization::on_configure()
+template<class NodeT>
+nav2_util::CallbackReturn TebVisualization<NodeT>::on_configure()
 {
   // register topics
-  global_plan_pub_ = nh_->create_publisher<nav_msgs::msg::Path>("global_plan", 1);;
-  local_plan_pub_ = nh_->create_publisher<nav_msgs::msg::Path>("local_plan",1);
-  teb_poses_pub_ = nh_->create_publisher<geometry_msgs::msg::PoseArray>("teb_poses", 1);
-  teb_marker_pub_ = nh_->create_publisher<visualization_msgs::msg::Marker>("teb_markers", 1);
-  feedback_pub_ = nh_->create_publisher<teb_msgs::msg::FeedbackMsg>("teb_feedback", 1);
+  global_plan_pub_ = nh_->template create_publisher<nav_msgs::msg::Path>("global_plan", 1);;
+  local_plan_pub_ = nh_->template create_publisher<nav_msgs::msg::Path>("local_plan",1);
+  teb_poses_pub_ = nh_->template create_publisher<geometry_msgs::msg::PoseArray>("teb_poses", 1);
+  teb_marker_pub_ = nh_->template create_publisher<visualization_msgs::msg::Marker>("teb_markers", 1);
+  feedback_pub_ = nh_->template create_publisher<teb_msgs::msg::FeedbackMsg>("teb_feedback", 1);
 
   initialized_ = true;
   return nav2_util::CallbackReturn::SUCCESS;
 }
 
-nav2_util::CallbackReturn 
-TebVisualization::on_activate()
+template<class NodeT>
+std::enable_if_t<std::is_same_v<NodeT, rclcpp_lifecycle::LifecycleNode::SharedPtr>, nav2_util::CallbackReturn>
+TebVisualization<NodeT>::on_activate()
 {
-  global_plan_pub_->on_activate();
-  local_plan_pub_->on_activate();
-  teb_poses_pub_->on_activate();
-  teb_marker_pub_->on_activate();
-  feedback_pub_->on_activate();
+  std::dynamic_pointer_cast<rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>>(global_plan_pub_)->on_activate();
+  std::dynamic_pointer_cast<rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>>(local_plan_pub_)->on_activate();
+  std::dynamic_pointer_cast<rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::PoseArray>>(teb_poses_pub_)->on_activate();
+  std::dynamic_pointer_cast<rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::Marker>>(teb_marker_pub_)->on_activate();
+  std::dynamic_pointer_cast<rclcpp_lifecycle::LifecyclePublisher<teb_msgs::msg::FeedbackMsg>>(feedback_pub_)->on_activate();
   return nav2_util::CallbackReturn::SUCCESS;
 }
 
-nav2_util::CallbackReturn 
-TebVisualization::on_deactivate()
+template<class NodeT>
+std::enable_if_t<std::is_same_v<NodeT, rclcpp_lifecycle::LifecycleNode::SharedPtr>, nav2_util::CallbackReturn>
+TebVisualization<NodeT>::on_deactivate()
 {
-  global_plan_pub_->on_deactivate();
-  local_plan_pub_->on_deactivate();
-  teb_poses_pub_->on_deactivate();
-  teb_marker_pub_->on_deactivate();
-  feedback_pub_->on_deactivate();
+  std::dynamic_pointer_cast<rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>>(global_plan_pub_)->on_deactivate();
+  std::dynamic_pointer_cast<rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>>(local_plan_pub_)->on_deactivate();
+  std::dynamic_pointer_cast<rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::PoseArray>>(teb_poses_pub_)->on_deactivate();
+  std::dynamic_pointer_cast<rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::Marker>>(teb_marker_pub_)->on_deactivate();
+  std::dynamic_pointer_cast<rclcpp_lifecycle::LifecyclePublisher<teb_msgs::msg::FeedbackMsg>>(feedback_pub_)->on_deactivate();
   return nav2_util::CallbackReturn::SUCCESS;
 }
 
-nav2_util::CallbackReturn 
-TebVisualization::on_cleanup()
+template<class NodeT>
+nav2_util::CallbackReturn
+TebVisualization<NodeT>::on_cleanup()
 {
   global_plan_pub_.reset();
   local_plan_pub_.reset();
@@ -559,5 +573,8 @@ TebVisualization::on_cleanup()
 
   return nav2_util::CallbackReturn::SUCCESS;
 }
+
+template class TebVisualization<rclcpp_lifecycle::LifecycleNode::SharedPtr>;
+template class TebVisualization<rclcpp::Node::SharedPtr>;
 
 } // namespace teb_local_planner

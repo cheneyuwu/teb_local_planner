@@ -59,7 +59,7 @@ class TebConfig
 {
 public:
   using UniquePtr = std::unique_ptr<TebConfig>;
-  
+
   std::string odom_topic; //!< Topic name of the odometry message, provided by the robot driver or simulator
   std::string map_frame; //!< Global planning frame
   std::string node_name; //!< node name used for parameter event callback
@@ -263,7 +263,7 @@ public:
     trajectory.publish_feedback = false;
     trajectory.min_resolution_collision_check_angular = M_PI;
     trajectory.control_look_ahead_poses = 1;
-    
+
     // Robot
 
     robot.max_vel_x = 0.4;
@@ -379,22 +379,24 @@ public:
     recovery.divergence_detection_enable = false;
     recovery.divergence_detection_max_chi_squared = 10;
   }
-  
-  void declareParameters(const nav2_util::LifecycleNode::SharedPtr, const std::string name);
+
+  template<typename NodeT>
+  void declareParameters(const NodeT, const std::string name);
 
   /**
    * @brief Load parmeters from the ros param server.
    * @param nh const reference to the local rclcpp::Node::SharedPtr
    */
-  void loadRosParamFromNodeHandle(const nav2_util::LifecycleNode::SharedPtr nh, const std::string name);
-  
+  template<typename NodeT>
+  void loadRosParamFromNodeHandle(const NodeT nh, const std::string name);
+
   /**
    * @brief Paremeter event callback
    * @param event The ParameterEvent
    */
   void on_parameter_event_callback(
       const rcl_interfaces::msg::ParameterEvent::SharedPtr event);
-  
+
   /**
    * @brief Check parameters and print warnings in case of discrepancies
    *
@@ -402,13 +404,14 @@ public:
    * about some improper uses.
    */
   void checkParameters() const;
-  
+
   /**
    * @brief Check if some deprecated parameters are found and print warnings
    * @param nh const reference to the local rclcpp::Node::SharedPtr
    */
-  void checkDeprecated(const nav2_util::LifecycleNode::SharedPtr nh, const std::string name) const;
-  
+  template<typename NodeT>
+  void checkDeprecated(const NodeT nh, const std::string name) const;
+
   /**
    * @brief Return the internal config mutex
    */

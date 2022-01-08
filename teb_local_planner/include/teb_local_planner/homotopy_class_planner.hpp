@@ -41,10 +41,10 @@
 
 namespace teb_local_planner
 {
-  
-  
+
+template<class NodeT>
 template<typename BidirIter, typename Fun>
-EquivalenceClassPtr HomotopyClassPlanner::calculateEquivalenceClass(BidirIter path_start, BidirIter path_end, Fun fun_cplx_point, const ObstContainer* obstacles,
+EquivalenceClassPtr<NodeT> HomotopyClassPlanner<NodeT>::calculateEquivalenceClass(BidirIter path_start, BidirIter path_end, Fun fun_cplx_point, const ObstContainer* obstacles,
                                                                     boost::optional<TimeDiffSequence::iterator> timediff_start, boost::optional<TimeDiffSequence::iterator> timediff_end)
 {
   if(cfg_->obstacles.include_dynamic_obstacles)
@@ -61,9 +61,9 @@ EquivalenceClassPtr HomotopyClassPlanner::calculateEquivalenceClass(BidirIter pa
   }
 }
 
-
+template<class NodeT>
 template<typename BidirIter, typename Fun>
-TebOptimalPlannerPtr HomotopyClassPlanner::addAndInitNewTeb(BidirIter path_start, BidirIter path_end, Fun fun_position, double start_orientation, double goal_orientation, const geometry_msgs::msg::Twist* start_velocity, bool free_goal_vel)
+TebOptimalPlannerPtr<NodeT> HomotopyClassPlanner<NodeT>::addAndInitNewTeb(BidirIter path_start, BidirIter path_end, Fun fun_position, double start_orientation, double goal_orientation, const geometry_msgs::msg::Twist* start_velocity, bool free_goal_vel)
 {
   TebOptimalPlannerPtr candidate = TebOptimalPlannerPtr( new TebOptimalPlanner(node_, *cfg_, obstacles_, robot_model_));
 
@@ -77,7 +77,7 @@ TebOptimalPlannerPtr HomotopyClassPlanner::addAndInitNewTeb(BidirIter path_start
   EquivalenceClassPtr H = calculateEquivalenceClass(candidate->teb().poses().begin(), candidate->teb().poses().end(), getCplxFromVertexPosePtr, obstacles_,
                                                     candidate->teb().timediffs().begin(), candidate->teb().timediffs().end());
 
-  
+
   if (free_goal_vel)
     candidate->setVelocityGoalFree();
 
@@ -90,6 +90,6 @@ TebOptimalPlannerPtr HomotopyClassPlanner::addAndInitNewTeb(BidirIter path_start
   // If the candidate constitutes no new equivalence class, return a null pointer
   return TebOptimalPlannerPtr();
 }
-  
+
 } // namespace teb_local_planner
 
