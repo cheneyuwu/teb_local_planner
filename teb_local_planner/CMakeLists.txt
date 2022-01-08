@@ -80,7 +80,7 @@ add_library(teb_local_planner SHARED
    src/recovery_behaviors.cpp
    src/teb_config.cpp
    src/homotopy_class_planner.cpp
-   src/teb_local_planner_ros.cpp
+  #  src/teb_local_planner_ros.cpp
    src/graph_search.cpp
 )
 

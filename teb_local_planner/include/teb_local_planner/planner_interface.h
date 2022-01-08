@@ -210,7 +210,7 @@ public:
    */
   virtual bool hasDiverged() const = 0;
 
-  nav2_util::LifecycleNode::SharedPtr node_{nullptr};
+  rclcpp::Node::SharedPtr node_{nullptr};
 };
 
 //! Abbrev. for shared instances of PlannerInterface or it's subclasses 

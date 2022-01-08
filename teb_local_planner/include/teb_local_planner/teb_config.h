@@ -380,13 +380,13 @@ public:
     recovery.divergence_detection_max_chi_squared = 10;
   }
   
-  void declareParameters(const nav2_util::LifecycleNode::SharedPtr, const std::string name);
+  void declareParameters(const rclcpp::Node::SharedPtr, const std::string name);
 
   /**
    * @brief Load parmeters from the ros param server.
    * @param nh const reference to the local rclcpp::Node::SharedPtr
    */
-  void loadRosParamFromNodeHandle(const nav2_util::LifecycleNode::SharedPtr nh, const std::string name);
+  void loadRosParamFromNodeHandle(const rclcpp::Node::SharedPtr nh, const std::string name);
   
   /**
    * @brief Paremeter event callback
@@ -407,7 +407,7 @@ public:
    * @brief Check if some deprecated parameters are found and print warnings
    * @param nh const reference to the local rclcpp::Node::SharedPtr
    */
-  void checkDeprecated(const nav2_util::LifecycleNode::SharedPtr nh, const std::string name) const;
+  void checkDeprecated(const rclcpp::Node::SharedPtr nh, const std::string name) const;
   
   /**
    * @brief Return the internal config mutex

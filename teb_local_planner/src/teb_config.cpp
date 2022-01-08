@@ -43,7 +43,7 @@ using nav2_util::declare_parameter_if_not_declared;
 namespace teb_local_planner
 {
 
-void TebConfig::declareParameters(const nav2_util::LifecycleNode::SharedPtr nh, const std::string name) {
+void TebConfig::declareParameters(const rclcpp::Node::SharedPtr nh, const std::string name) {
   node_name = name;
 
   declare_parameter_if_not_declared(nh, name + "." + "odom_topic", rclcpp::ParameterValue(odom_topic));
@@ -169,7 +169,7 @@ void TebConfig::declareParameters(const nav2_util::LifecycleNode::SharedPtr nh, 
   declare_parameter_if_not_declared(nh, name + "." + "divergence_detection_max_chi_squared", rclcpp::ParameterValue(recovery.divergence_detection_max_chi_squared));
 }
 
-void TebConfig::loadRosParamFromNodeHandle(const nav2_util::LifecycleNode::SharedPtr nh, const std::string name)
+void TebConfig::loadRosParamFromNodeHandle(const rclcpp::Node::SharedPtr nh, const std::string name)
 {
   nh->get_parameter_or(name + "." + "odom_topic", odom_topic, odom_topic);
   nh->get_parameter_or(name + "." + "map_frame", map_frame, map_frame);
@@ -640,7 +640,7 @@ void TebConfig::checkParameters() const
       RCLCPP_WARN(logger_, "TebLocalPlannerROS() Param Warning: parameter weight_optimaltime shoud be > 0 (even if weight_shortest_path is in use)");
 }    
 
-void TebConfig::checkDeprecated(const nav2_util::LifecycleNode::SharedPtr nh, const std::string name) const
+void TebConfig::checkDeprecated(const rclcpp::Node::SharedPtr nh, const std::string name) const
 {
   rclcpp::Parameter dummy;
 

@@ -61,7 +61,7 @@ void publishPlan(const std::vector<geometry_msgs::msg::PoseStamped>& path,
     pub->publish(gui_path);
 }
 
-TebVisualization::TebVisualization(const rclcpp_lifecycle::LifecycleNode::SharedPtr & nh, const TebConfig& cfg) : nh_(nh), cfg_(&cfg), initialized_(false)
+TebVisualization::TebVisualization(const rclcpp::Node::SharedPtr & nh, const TebConfig& cfg) : nh_(nh), cfg_(&cfg), initialized_(false)
 {
 }
 
@@ -529,22 +529,26 @@ nav2_util::CallbackReturn TebVisualization::on_configure()
 nav2_util::CallbackReturn 
 TebVisualization::on_activate()
 {
+#if false  
   global_plan_pub_->on_activate();
   local_plan_pub_->on_activate();
   teb_poses_pub_->on_activate();
   teb_marker_pub_->on_activate();
   feedback_pub_->on_activate();
+#endif  
   return nav2_util::CallbackReturn::SUCCESS;
 }
 
 nav2_util::CallbackReturn 
 TebVisualization::on_deactivate()
 {
+#if false  
   global_plan_pub_->on_deactivate();
   local_plan_pub_->on_deactivate();
   teb_poses_pub_->on_deactivate();
   teb_marker_pub_->on_deactivate();
   feedback_pub_->on_deactivate();
+#endif  
   return nav2_util::CallbackReturn::SUCCESS;
 }
 
