@@ -6,9 +6,11 @@ set(CMAKE_BUILD_TYPE Release) #None, Debug, Release, RelWithDebInfo, MinSizeRel
 
 # Default to C++14
 if(NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 14)
+  set(CMAKE_CXX_STANDARD 17)
+  set(CMAKE_CXX_STANDARD_REQUIRED ON)
 endif()
 
+add_compile_options(-march=native -O3 -pthread -Wall -Wextra)
 #if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 #  add_compile_options(-Wall -Wextra -Wpedantic)
 #endif()
@@ -140,8 +142,8 @@ install(PROGRAMS scripts/cmd_vel_to_ackermann_drive.py DESTINATION lib/${PROJECT
 
 install(DIRECTORY params DESTINATION share/${PROJECT_NAME})
 
-ament_export_include_directories(include)
-ament_export_libraries(teb_local_planner)
+ament_export_include_directories(include ${EXTERNAL_INCLUDE_DIRS})
+ament_export_libraries(teb_local_planner ${EXTERNAL_LIBS})
 ament_export_dependencies(${ament_dependencies})
 pluginlib_export_plugin_description_file(nav2_core teb_local_planner_plugin.xml)
 
