@@ -412,10 +412,10 @@ public:
   /**
    * @brief Return the internal config mutex
    */
-  std::mutex& configMutex() {return config_mutex_;}
+  std::mutex& configMutex() const {return config_mutex_;}
 
 private:
-  std::mutex config_mutex_; //!< Mutex for config accesses and changes
+  mutable std::mutex config_mutex_; //!< Mutex for config accesses and changes
   rclcpp::Logger logger_{rclcpp::get_logger("TEBLocalPlanner")};
 };
 } // namespace teb_local_planner
