@@ -49,6 +49,7 @@
 #include "teb_local_planner/planner_interface.h"
 #include "teb_local_planner/visualization.h"
 #include "teb_local_planner/robot_footprint_model.h"
+#include "teb_local_planner/costmap.h"
 
 // g2o lib stuff
 #include "g2o/core/sparse_optimizer.h"
@@ -130,7 +131,7 @@ public:
    * @param via_points Container storing via-points (optional)
    */
   TebOptimalPlanner(rclcpp::Node::SharedPtr node, const TebConfig& cfg, ObstContainer* obstacles = NULL, RobotFootprintModelPtr robot_model = std::make_shared<PointRobotFootprint>(),
-                    TebVisualizationPtr visual = TebVisualizationPtr(), const ViaPointContainer* via_points = NULL);
+                    TebVisualizationPtr visual = TebVisualizationPtr(), const ViaPointContainer* via_points = NULL, const CostMapContainer* costmaps = nullptr);
   
   /**
    * @brief Destruct the optimal planner.
@@ -147,7 +148,7 @@ public:
     * @param via_points Container storing via-points (optional)
     */
   void initialize(rclcpp::Node::SharedPtr node, const TebConfig& cfg, ObstContainer* obstacles = NULL, RobotFootprintModelPtr robot_model = std::make_shared<PointRobotFootprint>(),
-                  TebVisualizationPtr visual = TebVisualizationPtr(), const ViaPointContainer* via_points = NULL);
+                  TebVisualizationPtr visual = TebVisualizationPtr(), const ViaPointContainer* via_points = NULL, const CostMapContainer* costmaps = nullptr);
   
   /**
     * @param robot_model Shared pointer to the robot shape model used for optimization (optional)
@@ -321,6 +322,25 @@ public:
    * @return Const reference to the via-point container
    */
   const ViaPointContainer& getViaPoints() const {return *via_points_;}
+
+  //@}
+
+  /** @name Take costmaps into account */
+  //@{
+  
+  
+  /**
+   * @brief Assign a new set of costmaps
+   * @param costmap pointer to a costmap container (can also be a nullptr)
+   * @details Any previously set container will be overwritten.
+   */
+  void setCostMaps(const CostMapContainer* costmaps) {costmaps_ = costmaps;}
+  
+  /**
+   * @brief Access the internal via-point container.
+   * @return Const reference to the via-point container
+   */
+  const CostMapContainer& getCostMaps() const {return *costmaps_;}
 
   //@}
 	  
@@ -651,6 +671,13 @@ protected:
    * @see optimizeGraph
    */
   void AddEdgesViaPoints();
+
+  /**
+   * @brief Add all edges (local cost functions) related to using the costmap intensity
+   * @see buildGraph
+   * @see optimizeGraph
+   */
+  void AddEdgesCostMaps();  
   
   /**
    * @brief Add all edges (local cost functions) related to keeping a distance from dynamic (moving) obstacles.
@@ -710,6 +737,7 @@ protected:
   const TebConfig* cfg_; //!< Config class that stores and manages all related parameters
   ObstContainer* obstacles_; //!< Store obstacles that are relevant for planning
   const ViaPointContainer* via_points_; //!< Store via points for planning
+  const CostMapContainer* costmaps_; //<! Shared pointer to 2D costmaps
   std::vector<ObstContainer> obstacles_per_vertex_; //!< Store the obstacles associated with the n-1 initial vertices
   
   double cost_; //!< Store cost value of the current hyper-graph

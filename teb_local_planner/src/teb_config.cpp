@@ -125,6 +125,7 @@ void TebConfig::declareParameters(const rclcpp::Node::SharedPtr nh, const std::s
   declare_parameter_if_not_declared(nh, name + "." + "weight_dynamic_obstacle", rclcpp::ParameterValue(optim.weight_dynamic_obstacle));
   declare_parameter_if_not_declared(nh, name + "." + "weight_dynamic_obstacle_inflation", rclcpp::ParameterValue(optim.weight_dynamic_obstacle_inflation));
   declare_parameter_if_not_declared(nh, name + "." + "weight_viapoint", rclcpp::ParameterValue(optim.weight_viapoint));
+  declare_parameter_if_not_declared(nh, name + "." + "weight_costmap", rclcpp::ParameterValue(optim.weight_costmap));
   declare_parameter_if_not_declared(nh, name + "." + "weight_prefer_rotdir", rclcpp::ParameterValue(optim.weight_prefer_rotdir));
   declare_parameter_if_not_declared(nh, name + "." + "weight_adapt_factor", rclcpp::ParameterValue(optim.weight_adapt_factor));
   declare_parameter_if_not_declared(nh, name + "." + "obstacle_cost_exponent", rclcpp::ParameterValue(optim.obstacle_cost_exponent));
@@ -173,7 +174,7 @@ void TebConfig::loadRosParamFromNodeHandle(const rclcpp::Node::SharedPtr nh, con
 {
   nh->get_parameter_or(name + "." + "odom_topic", odom_topic, odom_topic);
   nh->get_parameter_or(name + "." + "map_frame", map_frame, map_frame);
-  
+
   // Trajectory
   nh->get_parameter_or(name + "." + "teb_autosize", trajectory.teb_autosize, trajectory.teb_autosize);
   nh->get_parameter_or(name + "." + "dt_ref", trajectory.dt_ref, trajectory.dt_ref);
@@ -207,7 +208,7 @@ void TebConfig::loadRosParamFromNodeHandle(const rclcpp::Node::SharedPtr nh, con
   nh->get_parameter_or(name + "." + "wheelbase", robot.wheelbase, robot.wheelbase);
   nh->get_parameter_or(name + "." + "cmd_angle_instead_rotvel", robot.cmd_angle_instead_rotvel, robot.cmd_angle_instead_rotvel);
   nh->get_parameter_or(name + "." + "is_footprint_dynamic", robot.is_footprint_dynamic, robot.is_footprint_dynamic);
-  
+
   // GoalTolerance
   nh->get_parameter_or(name + "." + "free_goal_vel", goal_tolerance.free_goal_vel, goal_tolerance.free_goal_vel);
 
@@ -227,7 +228,7 @@ void TebConfig::loadRosParamFromNodeHandle(const rclcpp::Node::SharedPtr nh, con
   nh->get_parameter_or(name + "." + "obstacle_proximity_ratio_max_vel", obstacles.obstacle_proximity_ratio_max_vel, obstacles.obstacle_proximity_ratio_max_vel);
   nh->get_parameter_or(name + "." + "obstacle_proximity_lower_bound", obstacles.obstacle_proximity_lower_bound, obstacles.obstacle_proximity_lower_bound);
   nh->get_parameter_or(name + "." + "obstacle_proximity_upper_bound", obstacles.obstacle_proximity_upper_bound, obstacles.obstacle_proximity_upper_bound);
-  
+
   // Optimization
   nh->get_parameter_or(name + "." + "no_inner_iterations", optim.no_inner_iterations, optim.no_inner_iterations);
   nh->get_parameter_or(name + "." + "no_outer_iterations", optim.no_outer_iterations, optim.no_outer_iterations);
@@ -250,11 +251,12 @@ void TebConfig::loadRosParamFromNodeHandle(const rclcpp::Node::SharedPtr nh, con
   nh->get_parameter_or(name + "." + "weight_dynamic_obstacle", optim.weight_dynamic_obstacle, optim.weight_dynamic_obstacle);
   nh->get_parameter_or(name + "." + "weight_dynamic_obstacle_inflation", optim.weight_dynamic_obstacle_inflation, optim.weight_dynamic_obstacle_inflation);
   nh->get_parameter_or(name + "." + "weight_viapoint", optim.weight_viapoint, optim.weight_viapoint);
+  nh->get_parameter_or(name + "." + "weight_costmap", optim.weight_costmap, optim.weight_costmap);
   nh->get_parameter_or(name + "." + "weight_prefer_rotdir", optim.weight_prefer_rotdir, optim.weight_prefer_rotdir);
   nh->get_parameter_or(name + "." + "weight_adapt_factor", optim.weight_adapt_factor, optim.weight_adapt_factor);
   nh->get_parameter_or(name + "." + "obstacle_cost_exponent", optim.obstacle_cost_exponent, optim.obstacle_cost_exponent);
   nh->get_parameter_or(name + "." + "weight_velocity_obstacle_ratio", optim.weight_velocity_obstacle_ratio, optim.weight_velocity_obstacle_ratio);
-  
+
   // Homotopy Class Planner
   nh->get_parameter_or(name + "." + "enable_homotopy_class_planning", hcp.enable_homotopy_class_planning, hcp.enable_homotopy_class_planning);
   nh->get_parameter_or(name + "." + "enable_multithreading", hcp.enable_multithreading, hcp.enable_multithreading);
@@ -301,7 +303,7 @@ void TebConfig::on_parameter_event_callback(
     const rcl_interfaces::msg::ParameterEvent::SharedPtr event)
 {
   std::lock_guard<std::mutex> l(config_mutex_);
-  
+
   for (auto & changed_parameter : event->changed_parameters) {
     const auto & type = changed_parameter.value.type;
     const auto & name = changed_parameter.name;
@@ -410,6 +412,8 @@ void TebConfig::on_parameter_event_callback(
         optim.weight_dynamic_obstacle_inflation = value.double_value;
       } else if (name == node_name + ".weight_viapoint") {
         optim.weight_viapoint = value.double_value;
+      } else if (name == node_name + ".weight_costmap") {
+        optim.weight_costmap = value.double_value;
       } else if (name == node_name + ".weight_prefer_rotdir") {
         optim.weight_prefer_rotdir = value.double_value;
       } else if (name == node_name + ".weight_adapt_factor") {
@@ -581,64 +585,64 @@ void TebConfig::on_parameter_event_callback(
   }
   checkParameters();
 }
-    
-    
+
+
 void TebConfig::checkParameters() const
 {
   //rclcpp::Logger logger_{rclcpp::get_logger("TEBLocalPlanner")};
   // positive backward velocity?
   if (robot.max_vel_x_backwards <= 0)
     RCLCPP_WARN(logger_, "TebLocalPlannerROS() Param Warning: Do not choose max_vel_x_backwards to be <=0. Disable backwards driving by increasing the optimization weight for penalyzing backwards driving.");
-  
+
   // bounds smaller than penalty epsilon
   if (robot.max_vel_x <= optim.penalty_epsilon)
     RCLCPP_WARN(logger_, "TebLocalPlannerROS() Param Warning: max_vel_x <= penalty_epsilon. The resulting bound is negative. Undefined behavior... Change at least one of them!");
-  
+
   if (robot.max_vel_x_backwards <= optim.penalty_epsilon)
     RCLCPP_WARN(logger_, "TebLocalPlannerROS() Param Warning: max_vel_x_backwards <= penalty_epsilon. The resulting bound is negative. Undefined behavior... Change at least one of them!");
-  
+
   if (robot.max_vel_theta <= optim.penalty_epsilon)
     RCLCPP_WARN(logger_, "TebLocalPlannerROS() Param Warning: max_vel_theta <= penalty_epsilon. The resulting bound is negative. Undefined behavior... Change at least one of them!");
-  
+
   if (robot.acc_lim_x <= optim.penalty_epsilon)
     RCLCPP_WARN(logger_, "TebLocalPlannerROS() Param Warning: acc_lim_x <= penalty_epsilon. The resulting bound is negative. Undefined behavior... Change at least one of them!");
-  
+
   if (robot.acc_lim_theta <= optim.penalty_epsilon)
     RCLCPP_WARN(logger_, "TebLocalPlannerROS() Param Warning: acc_lim_theta <= penalty_epsilon. The resulting bound is negative. Undefined behavior... Change at least one of them!");
-      
+
   // dt_ref and dt_hyst
   if (trajectory.dt_ref <= trajectory.dt_hysteresis)
     RCLCPP_WARN(logger_, "TebLocalPlannerROS() Param Warning: dt_ref <= dt_hysteresis. The hysteresis is not allowed to be greater or equal!. Undefined behavior... Change at least one of them!");
-    
+
   // min number of samples
   if (trajectory.min_samples <3)
     RCLCPP_WARN(logger_, "TebLocalPlannerROS() Param Warning: parameter min_samples is smaller than 3! Sorry, I haven't enough degrees of freedom to plan a trajectory for you. Please increase ...");
-  
+
   // costmap obstacle behind robot
   if (obstacles.costmap_obstacles_behind_robot_dist < 0)
     RCLCPP_WARN(logger_, "TebLocalPlannerROS() Param Warning: parameter 'costmap_obstacles_behind_robot_dist' should be positive or zero.");
-    
+
   // hcp: obstacle heading threshold
   if (hcp.obstacle_keypoint_offset>=1 || hcp.obstacle_keypoint_offset<=0)
     RCLCPP_WARN(logger_, "TebLocalPlannerROS() Param Warning: parameter obstacle_heading_threshold must be in the interval ]0,1[. 0=0deg opening angle, 1=90deg opening angle.");
-  
+
   // carlike
   if (robot.cmd_angle_instead_rotvel && robot.wheelbase==0)
     RCLCPP_WARN(logger_, "TebLocalPlannerROS() Param Warning: parameter cmd_angle_instead_rotvel is non-zero but wheelbase is set to zero: undesired behavior.");
-  
+
   if (robot.cmd_angle_instead_rotvel && robot.min_turning_radius==0)
     RCLCPP_WARN(logger_, "TebLocalPlannerROS() Param Warning: parameter cmd_angle_instead_rotvel is non-zero but min_turning_radius is set to zero: undesired behavior. You are mixing a carlike and a diffdrive robot");
-  
+
   // positive weight_adapt_factor
   if (optim.weight_adapt_factor < 1.0)
       RCLCPP_WARN(logger_, "TebLocalPlannerROS() Param Warning: parameter weight_adapt_factor shoud be >= 1.0");
-  
+
   if (recovery.oscillation_filter_duration < 0)
       RCLCPP_WARN(logger_, "TebLocalPlannerROS() Param Warning: parameter oscillation_filter_duration must be >= 0");
-  
+
   if (optim.weight_optimaltime <= 0)
       RCLCPP_WARN(logger_, "TebLocalPlannerROS() Param Warning: parameter weight_optimaltime shoud be > 0 (even if weight_shortest_path is in use)");
-}    
+}
 
 void TebConfig::checkDeprecated(const rclcpp::Node::SharedPtr nh, const std::string name) const
 {
@@ -646,16 +650,16 @@ void TebConfig::checkDeprecated(const rclcpp::Node::SharedPtr nh, const std::str
 
   if (nh->get_parameter(name + "." + "line_obstacle_poses_affected", dummy) || nh->get_parameter(name + "." + "polygon_obstacle_poses_affected", dummy))
     RCLCPP_WARN(logger_, "TebLocalPlannerROS() Param Warning: 'line_obstacle_poses_affected' and 'polygon_obstacle_poses_affected' are deprecated. They share now the common parameter 'obstacle_poses_affected'.");
-  
+
   if (nh->get_parameter(name + "." + "weight_point_obstacle", dummy) || nh->get_parameter(name + "." + "weight_line_obstacle", dummy) || nh->get_parameter(name + "." + "weight_poly_obstacle", dummy))
     RCLCPP_WARN(logger_, "TebLocalPlannerROS() Param Warning: 'weight_point_obstacle', 'weight_line_obstacle' and 'weight_poly_obstacle' are deprecated. They are replaced by the single param 'weight_obstacle'.");
-  
+
   if (nh->get_parameter(name + "." + "costmap_obstacles_front_only", dummy))
     RCLCPP_WARN(logger_, "TebLocalPlannerROS() Param Warning: 'costmap_obstacles_front_only' is deprecated. It is replaced by 'costmap_obstacles_behind_robot_dist' to define the actual area taken into account.");
-  
+
   if (nh->get_parameter(name + "." + "costmap_emergency_stop_dist", dummy))
     RCLCPP_WARN(logger_, "TebLocalPlannerROS() Param Warning: 'costmap_emergency_stop_dist' is deprecated. You can safely remove it from your parameter config.");
-  
+
   if (nh->get_parameter(name + "." + "alternative_time_cost", dummy))
     RCLCPP_WARN(logger_, "TebLocalPlannerROS() Param Warning: 'alternative_time_cost' is deprecated. It has been replaced by 'selection_alternative_time_cost'.");
 
@@ -663,5 +667,5 @@ void TebConfig::checkDeprecated(const rclcpp::Node::SharedPtr nh, const std::str
     RCLCPP_WARN(logger_, "TebLocalPlannerROS() Param Warning: 'global_plan_via_point_sep' is deprecated. It has been replaced by 'global_plan_viapoint_sep' due to consistency reasons.");
 }
 
-    
+
 } // namespace teb_local_planner

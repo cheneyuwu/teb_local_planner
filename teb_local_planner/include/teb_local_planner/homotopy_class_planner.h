@@ -63,6 +63,7 @@
 #include "teb_local_planner/robot_footprint_model.h"
 #include "teb_local_planner/equivalence_relations.h"
 #include "teb_local_planner/graph_search.h"
+#include "teb_local_planner/costmap.h"
 
 
 namespace teb_local_planner
@@ -124,9 +125,10 @@ public:
    * @param robot_model Shared pointer to the robot shape model used for optimization (optional)
    * @param visualization Shared pointer to the TebVisualization class (optional)
    * @param via_points Container storing via-points (optional)
+   * @param costmaps Container storing costmaps (optional)
    */
   HomotopyClassPlanner(rclcpp::Node::SharedPtr node, const TebConfig& cfg, ObstContainer* obstacles = NULL, RobotFootprintModelPtr robot_model = std::make_shared<PointRobotFootprint>(),
-                       TebVisualizationPtr visualization = TebVisualizationPtr(), const ViaPointContainer* via_points = NULL);
+                       TebVisualizationPtr visualization = TebVisualizationPtr(), const ViaPointContainer* via_points = NULL, const CostMapContainer* costmaps = nullptr);
 
   /**
    * @brief Destruct the HomotopyClassPlanner.
@@ -141,9 +143,10 @@ public:
    * @param robot_model Shared pointer to the robot shape model used for optimization (optional)
    * @param visualization Shared pointer to the TebVisualization class (optional)
    * @param via_points Container storing via-points (optional)
+   * @param costmaps Container storing costmaps (optional)
    */
   void initialize(rclcpp::Node::SharedPtr node, const TebConfig& cfg, ObstContainer* obstacles = NULL, RobotFootprintModelPtr robot_model = std::make_shared<PointRobotFootprint>(),
-                  TebVisualizationPtr visualization = TebVisualizationPtr(), const ViaPointContainer* via_points = NULL);
+                  TebVisualizationPtr visualization = TebVisualizationPtr(), const ViaPointContainer* via_points = NULL, const CostMapContainer* costmaps = nullptr);
 
 
   void updateRobotModel(RobotFootprintModelPtr robot_model );
@@ -544,12 +547,15 @@ protected:
    */
   void updateReferenceTrajectoryViaPoints(bool all_trajectories);
 
+  void updateReferenceTrajectoryCostMaps();
+
   //@}
 
   // external objects (store weak pointers)
   const TebConfig* cfg_; //!< Config class that stores and manages all related parameters
   ObstContainer* obstacles_; //!< Store obstacles that are relevant for planning
   const ViaPointContainer* via_points_; //!< Store the current list of via-points
+  const CostMapContainer* costmaps_; //<! Shared pointer to 2D costmaps
 
   // internal objects (memory management owned)
   TebVisualizationPtr visualization_; //!< Instance of the visualization class (local/global plan, obstacles, ...)

@@ -43,14 +43,14 @@
 namespace teb_local_planner
 {
 
-HomotopyClassPlanner::HomotopyClassPlanner() : cfg_(NULL), obstacles_(NULL), via_points_(NULL), robot_model_(new PointRobotFootprint()), initial_plan_(NULL), initialized_(false)
+HomotopyClassPlanner::HomotopyClassPlanner() : cfg_(NULL), obstacles_(NULL), via_points_(NULL), costmaps_(nullptr), robot_model_(new PointRobotFootprint()), initial_plan_(NULL), initialized_(false)
 {
 }
 
 HomotopyClassPlanner::HomotopyClassPlanner(rclcpp::Node::SharedPtr node, const TebConfig& cfg, ObstContainer* obstacles, RobotFootprintModelPtr robot_model,
-                                           TebVisualizationPtr visual, const ViaPointContainer* via_points) : initial_plan_(NULL)
+                                           TebVisualizationPtr visual, const ViaPointContainer* via_points, const CostMapContainer* costmaps) : initial_plan_(NULL)
 {
-  initialize(node, cfg, obstacles, robot_model, visual, via_points);
+  initialize(node, cfg, obstacles, robot_model, visual, via_points, costmaps);
 }
 
 HomotopyClassPlanner::~HomotopyClassPlanner()
@@ -58,12 +58,13 @@ HomotopyClassPlanner::~HomotopyClassPlanner()
 }
 
 void HomotopyClassPlanner::initialize(rclcpp::Node::SharedPtr node, const TebConfig& cfg, ObstContainer* obstacles, RobotFootprintModelPtr robot_model,
-                                      TebVisualizationPtr visual, const ViaPointContainer* via_points)
+                                      TebVisualizationPtr visual, const ViaPointContainer* via_points, const CostMapContainer* costmaps)
 {
   node_ = node;
   cfg_ = &cfg;
   obstacles_ = obstacles;
   via_points_ = via_points;
+  costmaps_ = costmaps;
   robot_model_ = robot_model;
 
   if (cfg_->hcp.simple_exploration)
@@ -127,6 +128,8 @@ bool HomotopyClassPlanner::plan(const PoseSE2& start, const PoseSE2& goal, const
   exploreEquivalenceClassesAndInitTebs(start, goal, cfg_->obstacles.min_obstacle_dist, start_vel, free_goal_vel);
   // update via-points if activated
   updateReferenceTrajectoryViaPoints(cfg_->hcp.viapoints_all_candidates);
+  // update cost maps
+  updateReferenceTrajectoryCostMaps();
   // Optimize all trajectories in alternative homotopy classes
   optimizeAllTEBs(cfg_->optim.no_inner_iterations, cfg_->optim.no_outer_iterations);
   // Select which candidate (based on alternative homotopy classes) should be used
@@ -345,6 +348,22 @@ void HomotopyClassPlanner::updateReferenceTrajectoryViaPoints(bool all_trajector
   }
 }
 
+void HomotopyClassPlanner::updateReferenceTrajectoryCostMaps()
+{
+  if (!costmaps_ || costmaps_->empty() || cfg_->optim.weight_costmap <= 0)
+    return;
+
+  if(equivalence_classes_.size() < tebs_.size())
+  {
+    RCLCPP_ERROR(rclcpp::get_logger("teb_local_planner"), "HomotopyClassPlanner::updateReferenceTrajectoryWithViaPoints(): Number of h-signatures does not match number of trajectories.");
+    return;
+  }   
+
+  for (std::size_t i = 0; i < equivalence_classes_.size(); ++i)
+  {
+    tebs_[i]->setCostMaps(costmaps_);
+  }
+}
 
 void HomotopyClassPlanner::exploreEquivalenceClassesAndInitTebs(const PoseSE2& start, const PoseSE2& goal, double dist_to_obst, const geometry_msgs::msg::Twist* start_vel, bool free_goal_vel)
 {

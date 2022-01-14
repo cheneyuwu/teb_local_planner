@@ -53,6 +53,7 @@
 #include <teb_local_planner/g2o_types/edge_dynamic_obstacle.h>
 #include <teb_local_planner/g2o_types/edge_via_point.h>
 #include <teb_local_planner/g2o_types/edge_prefer_rotdir.h>
+#include <teb_local_planner/g2o_types/edge_costmap.h>
 
 #include <memory>
 #include <limits>
@@ -62,14 +63,14 @@ namespace teb_local_planner
 
 // ============== Implementation ===================
 
-TebOptimalPlanner::TebOptimalPlanner() : cfg_(NULL), obstacles_(NULL), via_points_(NULL), cost_(HUGE_VAL), prefer_rotdir_(RotType::none),
+TebOptimalPlanner::TebOptimalPlanner() : cfg_(NULL), obstacles_(NULL), via_points_(NULL), costmaps_(nullptr), cost_(HUGE_VAL), prefer_rotdir_(RotType::none),
                                          robot_model_(new PointRobotFootprint()), initialized_(false), optimized_(false)
 {    
 }
   
-TebOptimalPlanner::TebOptimalPlanner(rclcpp::Node::SharedPtr node, const TebConfig& cfg, ObstContainer* obstacles, RobotFootprintModelPtr robot_model, TebVisualizationPtr visual, const ViaPointContainer* via_points)
+TebOptimalPlanner::TebOptimalPlanner(rclcpp::Node::SharedPtr node, const TebConfig& cfg, ObstContainer* obstacles, RobotFootprintModelPtr robot_model, TebVisualizationPtr visual, const ViaPointContainer* via_points, const CostMapContainer* costmaps)
 {    
-  initialize(node, cfg, obstacles, robot_model, visual, via_points);
+  initialize(node, cfg, obstacles, robot_model, visual, via_points, costmaps);
 }
 
 TebOptimalPlanner::~TebOptimalPlanner()
@@ -82,7 +83,7 @@ TebOptimalPlanner::~TebOptimalPlanner()
   //g2o::HyperGraphActionLibrary::destroy();
 }
 
-void TebOptimalPlanner::initialize(rclcpp::Node::SharedPtr node, const TebConfig& cfg, ObstContainer* obstacles, RobotFootprintModelPtr robot_model, TebVisualizationPtr visual, const ViaPointContainer* via_points)
+void TebOptimalPlanner::initialize(rclcpp::Node::SharedPtr node, const TebConfig& cfg, ObstContainer* obstacles, RobotFootprintModelPtr robot_model, TebVisualizationPtr visual, const ViaPointContainer* via_points, const CostMapContainer* costmaps)
 {    
   node_ = node;
   // init optimizer (set solver and block ordering settings)
@@ -92,6 +93,7 @@ void TebOptimalPlanner::initialize(rclcpp::Node::SharedPtr node, const TebConfig
   obstacles_ = obstacles;
   robot_model_ = robot_model;
   via_points_ = via_points;
+  costmaps_ = costmaps;
   cost_ = HUGE_VAL;
   prefer_rotdir_ = RotType::none;
 
@@ -170,6 +172,7 @@ void TebOptimalPlanner::registerG2OTypes()
   register_type<EdgeDynamicObstacle>(factory, "EDGE_DYNAMIC_OBSTACLE");
   register_type<EdgeViaPoint>(factory, "EDGE_VIA_POINT");
   register_type<EdgePreferRotDir>(factory, "EDGE_PREFER_ROTDIR");
+  register_type<EdgeCostMap>(factory, "EDGE_COST_MAP");
   return;
 }
 
@@ -362,6 +365,8 @@ bool TebOptimalPlanner::buildGraph(double weight_multiplier)
     AddEdgesDynamicObstacles();
   
   AddEdgesViaPoints();
+
+  AddEdgesCostMaps();  
   
   AddEdgesVelocity();
   
@@ -733,6 +738,29 @@ void TebOptimalPlanner::AddEdgesViaPoints()
     edge_viapoint->setInformation(information);
     edge_viapoint->setParameters(*cfg_, &(*vp_it));
     optimizer_->addEdge(edge_viapoint);   
+  }
+}
+
+void TebOptimalPlanner::AddEdgesCostMaps()
+{
+  // std::cout<<" --- in the addedge fcn" << std::endl; 
+
+  if (cfg_->optim.weight_costmap==0 || costmaps_==nullptr || costmaps_->empty() )
+    return; // if weight equals zero skip adding edges!
+
+  Eigen::Matrix<double,1,1> information;
+  information(0, 0)= cfg_->optim.weight_costmap;
+
+  for(int index = 1; index < teb_.sizePoses() - 1; ++index)
+  {
+    for (const auto& costmap : *(costmaps_)) {
+      // std::cout << "Adding edge..." <<std::endl;
+      EdgeCostMap* edge = new EdgeCostMap;
+      edge->setVertex(0, teb_.PoseVertex(index));
+      edge->setInformation(information);
+      edge->setParameters(*cfg_, robot_model_.get(), costmap.get());
+      optimizer_->addEdge(edge); 
+    }
   }
 }
 
